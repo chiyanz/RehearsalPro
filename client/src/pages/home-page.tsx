@@ -24,7 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
-import { insertEventSchema } from "@shared/schema";
+import { insertEventSchema, Event, InsertEvent } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarRange, Loader2, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -35,14 +35,14 @@ import { Link } from "wouter";
 export default function HomePage() {
   const { user } = useAuth();
 
-  const { data: events, isLoading } = useQuery({
+  const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
 
   const createEventMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: InsertEvent) => {
       const res = await apiRequest("POST", "/api/events", data);
-      return res.json();
+      return res.json() as Promise<Event>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
@@ -140,7 +140,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {events?.map((event: any) => (
+        {events.map((event) => (
           <Link key={event.id} href={`/events/${event.id}`}>
             <Card className="cursor-pointer hover:bg-accent">
               <CardHeader>
