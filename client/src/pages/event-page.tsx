@@ -23,6 +23,7 @@ import { Event, Participant } from "@shared/schema";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { UserMenu } from "@/components/user-menu";
+import { format } from "date-fns";
 
 export default function EventPage() {
   const [, params] = useRoute<{ id: string }>("/events/:id");
@@ -30,6 +31,7 @@ export default function EventPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: [`/api/events/${eventId}`],
@@ -68,6 +70,16 @@ export default function EventPage() {
 
   const handleAvailabilityUpdate = () => {
     addAvailabilityMutation.mutate(selectedDates);
+  };
+
+  // Parse the stored JSON string of dates back into Date objects
+  const getParticipantAvailability = (participant: Participant): Date[] => {
+    try {
+      const dates = JSON.parse(participant.availability);
+      return dates.map((dateStr: string) => new Date(dateStr));
+    } catch {
+      return [];
+    }
   };
 
   if (!eventId) {
@@ -165,9 +177,37 @@ export default function EventPage() {
                   className="flex items-center justify-between p-2 rounded-lg hover:bg-accent"
                 >
                   <span>User {participant.userId}</span>
-                  <Button variant="outline" size="sm">
-                    View Availability
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedParticipant(participant)}
+                      >
+                        View Availability
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Available Dates</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Calendar
+                          mode="multiple"
+                          selected={getParticipantAvailability(participant)}
+                          className="rounded-md border"
+                          disabled
+                        />
+                        <div className="text-sm text-muted-foreground">
+                          {getParticipantAvailability(participant).map((date, index) => (
+                            <div key={index}>
+                              {format(date, 'MMMM d, yyyy')}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               ))}
             </div>
