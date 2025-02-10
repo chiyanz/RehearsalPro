@@ -1,115 +1,111 @@
-import { users, type User, type InsertUser, type Event, type InsertEvent, type Participant } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { users, events, participants, type User, type InsertUser, type Event, type InsertEvent, type Participant } from "@shared/schema";
+import { db } from "./db";
+import { eq, or, and } from "drizzle-orm";
+import connectPg from "connect-pg-simple";
 import session from "express-session";
-import { randomBytes } from "crypto";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   createEvent(event: InsertEvent & { plannerId: number }): Promise<Event>;
   getEvent(id: number): Promise<Event | undefined>;
   getEventByInviteCode(code: string): Promise<Event | undefined>;
   getUserEvents(userId: number): Promise<Event[]>;
-  
+
   addParticipant(eventId: number, userId: number, availability: string): Promise<Participant>;
   getEventParticipants(eventId: number): Promise<Participant[]>;
   updateParticipantAvailability(userId: number, eventId: number, availability: string): Promise<void>;
-  
+
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private events: Map<number, Event>;
-  private participants: Map<number, Participant>;
-  private currentUserId: number;
-  private currentEventId: number;
-  private currentParticipantId: number;
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.events = new Map();
-    this.participants = new Map();
-    this.currentUserId = 1;
-    this.currentEventId = 1;
-    this.currentParticipantId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      pool: db.client,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async createEvent(event: InsertEvent & { plannerId: number }): Promise<Event> {
-    const id = this.currentEventId++;
-    const inviteCode = randomBytes(6).toString('hex');
-    const newEvent = { ...event, id, inviteCode };
-    this.events.set(id, newEvent);
+    const [newEvent] = await db.insert(events).values({
+      ...event,
+      inviteCode: this.generateInviteCode(),
+    }).returning();
     return newEvent;
   }
 
   async getEvent(id: number): Promise<Event | undefined> {
-    return this.events.get(id);
+    const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event;
   }
 
   async getEventByInviteCode(code: string): Promise<Event | undefined> {
-    return Array.from(this.events.values()).find(
-      (event) => event.inviteCode === code,
-    );
+    const [event] = await db.select().from(events).where(eq(events.inviteCode, code));
+    return event;
   }
 
   async getUserEvents(userId: number): Promise<Event[]> {
-    const participantEventIds = Array.from(this.participants.values())
-      .filter(p => p.userId === userId)
-      .map(p => p.eventId);
-    
-    return Array.from(this.events.values()).filter(
-      event => event.plannerId === userId || participantEventIds.includes(event.id)
+    return await db.select().from(events).where(
+      or(
+        eq(events.plannerId, userId),
+        events.id.in(
+          db.select({ id: participants.eventId })
+            .from(participants)
+            .where(eq(participants.userId, userId))
+        )
+      )
     );
   }
 
   async addParticipant(eventId: number, userId: number, availability: string): Promise<Participant> {
-    const id = this.currentParticipantId++;
-    const participant = { id, eventId, userId, availability };
-    this.participants.set(id, participant);
+    const [participant] = await db.insert(participants)
+      .values({ eventId, userId, availability })
+      .returning();
     return participant;
   }
 
   async getEventParticipants(eventId: number): Promise<Participant[]> {
-    return Array.from(this.participants.values()).filter(
-      p => p.eventId === eventId
-    );
+    return await db.select()
+      .from(participants)
+      .where(eq(participants.eventId, eventId));
   }
 
   async updateParticipantAvailability(userId: number, eventId: number, availability: string): Promise<void> {
-    const participant = Array.from(this.participants.values()).find(
-      p => p.userId === userId && p.eventId === eventId
-    );
-    if (participant) {
-      participant.availability = availability;
-      this.participants.set(participant.id, participant);
-    }
+    await db.update(participants)
+      .set({ availability })
+      .where(
+        and(
+          eq(participants.userId, userId),
+          eq(participants.eventId, eventId)
+        )
+      );
+  }
+
+  private generateInviteCode(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
