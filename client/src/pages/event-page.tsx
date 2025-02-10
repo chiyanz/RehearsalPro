@@ -14,28 +14,40 @@ import { useParams } from "wouter";
 import { Event, Participant } from "@shared/schema";
 
 export default function EventPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const eventId = params?.id ? parseInt(params.id) : null;
   const { user } = useAuth();
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
-    queryKey: [`/api/events/${id}`],
+    queryKey: [`/api/events/${eventId}`],
+    enabled: !!eventId, // Only run query if we have a valid ID
   });
 
   const { data: participants = [], isLoading: participantsLoading } = useQuery<Participant[]>({
-    queryKey: [`/api/events/${id}/participants`],
+    queryKey: [`/api/events/${eventId}/participants`],
+    enabled: !!eventId, // Only run query if we have a valid ID
   });
 
   const addAvailabilityMutation = useMutation({
     mutationFn: async (availability: string) => {
-      const res = await apiRequest("PUT", `/api/events/${id}/availability`, {
+      if (!eventId) throw new Error("Invalid event ID");
+      const res = await apiRequest("PUT", `/api/events/${eventId}/availability`, {
         availability,
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/events/${id}/participants`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/participants`] });
     },
   });
+
+  if (!eventId) {
+    return (
+      <div className="container mx-auto p-6">
+        <h1 className="text-2xl font-bold text-destructive">Invalid event ID</h1>
+      </div>
+    );
+  }
 
   if (eventLoading || participantsLoading) {
     return (
