@@ -26,14 +26,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { insertEventSchema, Event, InsertEvent } from "@shared/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarRange, Loader2, Plus } from "lucide-react";
+import { CalendarRange, Loader2, Plus, UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { z } from "zod";
+
+const joinEventSchema = z.object({
+  inviteCode: z.string().min(1, "Invite code is required"),
+});
+
+type JoinEventData = z.infer<typeof joinEventSchema>;
 
 export default function HomePage() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   const { data: events = [], isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -49,7 +57,22 @@ export default function HomePage() {
     },
   });
 
-  const form = useForm({
+  const joinEventMutation = useMutation({
+    mutationFn: async (data: JoinEventData) => {
+      const res = await apiRequest("GET", `/api/events/invite/${data.inviteCode}`);
+      const event = await res.json() as Event;
+      await apiRequest("POST", `/api/events/${event.id}/participants`, {
+        availability: JSON.stringify([]), // Initially empty availability
+      });
+      return event;
+    },
+    onSuccess: (event) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setLocation(`/events/${event.id}`);
+    },
+  });
+
+  const createForm = useForm({
     resolver: zodResolver(insertEventSchema),
     defaultValues: {
       title: "",
@@ -58,6 +81,13 @@ export default function HomePage() {
         start: new Date().toISOString(),
         end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       }),
+    },
+  });
+
+  const joinForm = useForm({
+    resolver: zodResolver(joinEventSchema),
+    defaultValues: {
+      inviteCode: "",
     },
   });
 
@@ -79,64 +109,112 @@ export default function HomePage() {
           </p>
         </div>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Event
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Event</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit((data) =>
-                  createEventMutation.mutate(data)
-                )}
-                className="space-y-4"
-              >
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+        <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Join Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Join Event</DialogTitle>
+              </DialogHeader>
+              <Form {...joinForm}>
+                <form
+                  onSubmit={joinForm.handleSubmit((data) =>
+                    joinEventMutation.mutate(data)
                   )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={createEventMutation.isPending}
+                  className="space-y-4"
                 >
-                  {createEventMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <FormField
+                    control={joinForm.control}
+                    name="inviteCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invite Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter invite code" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={joinEventMutation.isPending}
+                  >
+                    {joinEventMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Join Event
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Event
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Event</DialogTitle>
+              </DialogHeader>
+              <Form {...createForm}>
+                <form
+                  onSubmit={createForm.handleSubmit((data) =>
+                    createEventMutation.mutate(data)
                   )}
-                  Create Event
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  className="space-y-4"
+                >
+                  <FormField
+                    control={createForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={createEventMutation.isPending}
+                  >
+                    {createEventMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Create Event
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
