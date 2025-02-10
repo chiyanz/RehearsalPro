@@ -96,7 +96,7 @@ export function registerRoutes(app: Express): Server {
         id,
         availability
       );
-      res.sendStatus(200);
+      res.json({ message: "Availability updated successfully" });
     } catch (error) {
       res.status(400).json({ message: "Invalid request" });
     }
