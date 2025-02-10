@@ -10,22 +10,22 @@ import { useAuth } from "@/hooks/use-auth";
 import { Loader2, CalendarRange, Users } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useParams } from "wouter";
+import { useRoute } from "wouter";
 import { Event, Participant } from "@shared/schema";
 
 export default function EventPage() {
-  const params = useParams();
+  const [, params] = useRoute<{ id: string }>("/events/:id");
   const eventId = params?.id ? parseInt(params.id) : null;
   const { user } = useAuth();
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: [`/api/events/${eventId}`],
-    enabled: !!eventId, // Only run query if we have a valid ID
+    enabled: !!eventId,
   });
 
   const { data: participants = [], isLoading: participantsLoading } = useQuery<Participant[]>({
     queryKey: [`/api/events/${eventId}/participants`],
-    enabled: !!eventId, // Only run query if we have a valid ID
+    enabled: !!eventId && !!event,
   });
 
   const addAvailabilityMutation = useMutation({
