@@ -22,6 +22,7 @@ import { useRoute } from "wouter";
 import { Event, Participant } from "@shared/schema";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { UserMenu } from "@/components/user-menu";
 
 export default function EventPage() {
   const [, params] = useRoute<{ id: string }>("/events/:id");
@@ -139,7 +140,7 @@ export default function EventPage() {
               onSelect={(dates) => setSelectedDates(dates || [])}
               className="rounded-md border"
             />
-            <Button 
+            <Button
               onClick={handleAvailabilityUpdate}
               disabled={addAvailabilityMutation.isPending}
               className="w-full"
