@@ -28,7 +28,7 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({
-      pool: db.client,
+      pool: db.$client,
       createTableIfMissing: true,
     });
   }
@@ -67,16 +67,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserEvents(userId: number): Promise<Event[]> {
-    return await db.select().from(events).where(
-      or(
-        eq(events.plannerId, userId),
-        events.id.in(
-          db.select({ id: participants.eventId })
+    return await db.select()
+      .from(events)
+      .where(
+        or(
+          eq(events.plannerId, userId),
+          eq(events.id, db.select({ id: participants.eventId })
             .from(participants)
             .where(eq(participants.userId, userId))
+          )
         )
-      )
-    );
+      );
   }
 
   async addParticipant(eventId: number, userId: number, availability: string): Promise<Participant> {
