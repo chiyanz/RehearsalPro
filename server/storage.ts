@@ -1,6 +1,6 @@
 import { users, events, participants, type User, type InsertUser, type Event, type InsertEvent, type Participant } from "@shared/schema";
 import { db } from "./db";
-import { eq, or, and } from "drizzle-orm";
+import { eq, or, and, exists } from "drizzle-orm";
 import connectPg from "connect-pg-simple";
 import session from "express-session";
 
@@ -72,9 +72,15 @@ export class DatabaseStorage implements IStorage {
       .where(
         or(
           eq(events.plannerId, userId),
-          eq(events.id, db.select({ id: participants.eventId })
-            .from(participants)
-            .where(eq(participants.userId, userId))
+          exists(
+            db.select()
+              .from(participants)
+              .where(
+                and(
+                  eq(participants.userId, userId),
+                  eq(participants.eventId, events.id)
+                )
+              )
           )
         )
       );
