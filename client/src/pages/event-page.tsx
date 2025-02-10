@@ -11,16 +11,17 @@ import { Loader2, CalendarRange, Users } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useParams } from "wouter";
+import { Event, Participant } from "@shared/schema";
 
 export default function EventPage() {
   const { id } = useParams();
   const { user } = useAuth();
 
-  const { data: event, isLoading: eventLoading } = useQuery({
+  const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: [`/api/events/${id}`],
   });
 
-  const { data: participants, isLoading: participantsLoading } = useQuery({
+  const { data: participants = [], isLoading: participantsLoading } = useQuery<Participant[]>({
     queryKey: [`/api/events/${id}/participants`],
   });
 
@@ -40,6 +41,14 @@ export default function EventPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="container mx-auto p-6">
+        <h1 className="text-2xl font-bold text-destructive">Event not found</h1>
       </div>
     );
   }
@@ -71,7 +80,7 @@ export default function EventPage() {
               </div>
               <div className="flex items-center">
                 <Users className="mr-2 h-4 w-4" />
-                <span>{participants?.length || 0} Participants</span>
+                <span>{participants.length} Participants</span>
               </div>
             </div>
           </CardContent>
@@ -83,7 +92,7 @@ export default function EventPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {participants?.map((participant: any) => (
+              {participants.map((participant) => (
                 <div
                   key={participant.id}
                   className="flex items-center justify-between"
