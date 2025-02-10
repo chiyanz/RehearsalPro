@@ -32,6 +32,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import { z } from "zod";
+import { UserMenu } from "@/components/user-menu";
 
 const joinEventSchema = z.object({
   inviteCode: z.string().min(1, "Invite code is required"),
@@ -109,111 +110,114 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Join Event
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Join Event</DialogTitle>
-              </DialogHeader>
-              <Form {...joinForm}>
-                <form
-                  onSubmit={joinForm.handleSubmit((data) =>
-                    joinEventMutation.mutate(data)
-                  )}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={joinForm.control}
-                    name="inviteCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Invite Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Enter invite code" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+        <div className="flex items-center gap-4">
+          <UserMenu />
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Join Event
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Join Event</DialogTitle>
+                </DialogHeader>
+                <Form {...joinForm}>
+                  <form
+                    onSubmit={joinForm.handleSubmit((data) =>
+                      joinEventMutation.mutate(data)
                     )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={joinEventMutation.isPending}
+                    className="space-y-4"
                   >
-                    {joinEventMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Join Event
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <FormField
+                      control={joinForm.control}
+                      name="inviteCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invite Code</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Enter invite code" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={joinEventMutation.isPending}
+                    >
+                      {joinEventMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Join Event
+                    </Button>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
 
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Event
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Event</DialogTitle>
-              </DialogHeader>
-              <Form {...createForm}>
-                <form
-                  onSubmit={createForm.handleSubmit((data) =>
-                    createEventMutation.mutate(data)
-                  )}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={createForm.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Title</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Event
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Event</DialogTitle>
+                </DialogHeader>
+                <Form {...createForm}>
+                  <form
+                    onSubmit={createForm.handleSubmit((data) =>
+                      createEventMutation.mutate(data)
                     )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={createEventMutation.isPending}
+                    className="space-y-4"
                   >
-                    {createEventMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Create Event
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <FormField
+                      control={createForm.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Title</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={createEventMutation.isPending}
+                    >
+                      {createEventMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Create Event
+                    </Button>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 

@@ -6,17 +6,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2, CalendarRange, Users } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useRoute } from "wouter";
 import { Event, Participant } from "@shared/schema";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function EventPage() {
   const [, params] = useRoute<{ id: string }>("/events/:id");
   const eventId = params?.id ? parseInt(params.id) : null;
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
 
   const { data: event, isLoading: eventLoading } = useQuery<Event>({
     queryKey: [`/api/events/${eventId}`],
@@ -29,8 +41,9 @@ export default function EventPage() {
   });
 
   const addAvailabilityMutation = useMutation({
-    mutationFn: async (availability: string) => {
+    mutationFn: async (dates: Date[]) => {
       if (!eventId) throw new Error("Invalid event ID");
+      const availability = JSON.stringify(dates.map(d => d.toISOString()));
       const res = await apiRequest("PUT", `/api/events/${eventId}/availability`, {
         availability,
       });
@@ -38,8 +51,23 @@ export default function EventPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}/participants`] });
+      toast({
+        title: "Success",
+        description: "Your availability has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
+
+  const handleAvailabilityUpdate = () => {
+    addAvailabilityMutation.mutate(selectedDates);
+  };
 
   if (!eventId) {
     return (
@@ -72,6 +100,7 @@ export default function EventPage() {
           <h1 className="text-3xl font-bold">{event.title}</h1>
           <p className="text-muted-foreground">{event.description}</p>
         </div>
+        <UserMenu />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -100,6 +129,31 @@ export default function EventPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Set Your Availability</CardTitle>
+            <CardDescription>Select the dates you're available</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Calendar
+              mode="multiple"
+              selected={selectedDates}
+              onSelect={(dates) => setSelectedDates(dates || [])}
+              className="rounded-md border"
+            />
+            <Button 
+              onClick={handleAvailabilityUpdate}
+              disabled={addAvailabilityMutation.isPending}
+              className="w-full"
+            >
+              {addAvailabilityMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Update Availability
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Participants</CardTitle>
           </CardHeader>
           <CardContent>
@@ -107,7 +161,7 @@ export default function EventPage() {
               {participants.map((participant) => (
                 <div
                   key={participant.id}
-                  className="flex items-center justify-between"
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-accent"
                 >
                   <span>User {participant.userId}</span>
                   <Button variant="outline" size="sm">
